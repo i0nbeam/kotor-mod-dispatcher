@@ -57,6 +57,7 @@ def extract_archive(archive_path: Path,mod_folder: Path):
     if extension == ".7z":
         with py7zr.SevenZipFile(archive_path, mode='r') as archive:
             archive.extractall(path=mod_folder)
+
     elif extension == ".rar":
         with rarfile.RarFile(archive_path) as archive:
             archive.extractall(path=mod_folder)
@@ -235,11 +236,26 @@ print(f"{WHITE}Archive:{RESET} {archive_path.name}")
 print(f"{WHITE}Extracting to {Path.home() / "Downloads"}\\{archive_path.stem}\\ ...{RESET}")
 
 
+try:
+    extract_archive(archive_path,extracted_path)
+    install_mod(extracted_path,base_path,override_path,automatic_override_install)
 
-extract_archive(archive_path,extracted_path)
+except py7zr.exceptions.UnsupportedCompressionMethodError as err:
+    print(f"\n{RED}EXCEPTION: {RESET}{YELLOW}{err}{RESET}\n")
+    print(f"{YELLOW}This .7z archive uses the BCJ2 filter which is currently unsupported by py7zr. Install this mod without kotor_mod_dispatcher.{RESET}\n")
+    sys.exit(1)
+
+except zipfile.BadZipFile as err:
+    print(f"\n{RED}ERROR: {RESET}{archive_path.name} is BadZipFile\n")
+    print(f"{err}\n")
+    print(f"{YELLOW}Try recompressing this archive or install this mod without kotor_mod_dispatcher.{RESET}\n")
+    sys.exit(1)
 
 
-install_mod(extracted_path,base_path,override_path,automatic_override_install)
+
+    
+
+
 
 
 
