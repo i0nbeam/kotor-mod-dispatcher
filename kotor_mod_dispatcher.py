@@ -25,6 +25,8 @@ K1_OVERRIDE_PATH = K1_BASE_PATH / "Override"
 K2_BASE_PATH = Path("C:/Program Files (x86)/Steam/steamapps/common/Knights of the Old Republic II")
 K2_OVERRIDE_PATH = K2_BASE_PATH / "override"
 
+ignored_extensions = [".txt", ".rtf", ".doc", ".docx"]
+
 #-----------------------------------------------------------------------
 # Functions
 #-----------------------------------------------------------------------
@@ -74,11 +76,16 @@ def extract_archive(archive_path: Path,mod_folder: Path):
 
 def install_override_mod(mod_folder: Path, base_folder: Path, override_folder: Path):
 
-    directories = [path for path in mod_folder.iterdir() if path.is_dir()]
-    ignored_extensions = [".txt", ".rtf", ".docx"]
+    directories = [path for path in mod_folder.rglob("*") if path.is_dir()]
 
-    if (len(directories) >= 0 and all(directory.name == mod_folder.name for directory in directories)):
 
+    if (len(directories) >= 1 and any(directory.name != mod_folder.name and directory.name.lower() != "override" for directory in directories)):
+        print(f"{YELLOW}Multiple folders found.\n{RESET}")
+        print(mod_folder.name)
+        print_folder_tree(mod_folder)
+
+
+    else:
         print(extracted_path.name)
         print_folder_tree(mod_folder)
         files = [file for file in mod_folder.rglob("*") if file.is_file()]
@@ -96,7 +103,7 @@ def install_override_mod(mod_folder: Path, base_folder: Path, override_folder: P
 
         for file in files:
 
-            if file.suffix in ignored_extensions:
+            if file.suffix in ignored_extensions or file.name.endswith("#"):
                 continue
 
 
@@ -117,15 +124,9 @@ def install_override_mod(mod_folder: Path, base_folder: Path, override_folder: P
                     else:
                         continue
         
-        print(f"\nDeleting {mod_folder}\\ ...\n")
-        shutil.rmtree(mod_folder)
         print(f"{GREEN}\nFinished.\n{RESET}")
 
         
-    else:
-        print(f"{YELLOW}Multiple folders found.\n{RESET}")
-        print(mod_folder.name)
-        print_folder_tree(mod_folder)
 
         
 
@@ -172,8 +173,8 @@ def install_mod(mod_folder: Path, base_folder: Path, override_folder: Path, auto
     print(f"\n{CYAN}Running {installer.name}...{RESET}")
     subprocess.run([str(installer)], cwd=installer.parent)
     print(f"\n{GREEN}Installation complete.{RESET}")
-    print(f"\nDeleting {mod_folder}\\ ...\n")
-    shutil.rmtree(mod_folder)
+    # print(f"\nDeleting {mod_folder}\\ ...\n")
+    # shutil.rmtree(mod_folder)
 
 
         
