@@ -72,51 +72,66 @@ def extract_archive(archive_path: Path,mod_folder: Path):
 
 
 
-def install_override_mod(mod_folder: Path, override_path: Path):
+def install_override_mod(mod_folder: Path, base_folder: Path, override_folder: Path):
 
     directories = [path for path in mod_folder.iterdir() if path.is_dir()]
+    ignored_extensions = [".txt", ".rtf", ".docx"]
 
     if (len(directories) >= 0 and all(directory.name == mod_folder.name for directory in directories)):
 
         print(extracted_path.name)
         print_folder_tree(mod_folder)
-        files = [file for file in mod_folder.iterdir() if not file.is_dir()]
+        files = [file for file in mod_folder.rglob("*") if file.is_file()]
         excluded_files = input(f"\nEnter filenames to be excluded (separated by spaces, 'q' to cancel install): ").split()
         print()
+
 
         if (len(excluded_files) > 0 and excluded_files[0].lower() == 'q'):
             print(f"{YELLOW}Terminating install.{RESET}\n")
             shutil.rmtree(mod_folder)
             sys.exit(1)
 
-        files = [file for file in files if file not in excluded_files]
+
+        files = [file for file in files if file.name not in excluded_files]
 
         for file in files:
 
-            if file.suffix == ".tlk":
-                print(f"Moving {file.name} to base folder...")
-                shutil.move(file,K1_BASE_PATH)
-
-            elif file.suffix == ".txt":
+            if file.suffix in ignored_extensions:
                 continue
 
-            else:
-                print(f"Moving {file.name} to {override_path.parent}/{"override" if game=="K1" else "Override"}...")
-                shutil.move(file, K1_OVERRIDE_PATH)
 
-        print(f"{GREEN}Finished.\n{RESET}")
+            elif file.suffix == ".tlk":
+                print(f"Moving {file.name} to base folder...")
+                shutil.move(file,base_folder)
+
+
+            else:
+                print(f"Moving {file.name} to {base_folder.name}\\{override_folder.name}...")
+                try:
+                    shutil.move(file, override_folder)
+                except shutil.Error:
+                    choice = input(f"{YELLOW}{file.name} already exists. Overwrite? (Y/N): {RESET}")
+                    choice = choice.lower()
+                    if choice == 'y':
+                        file.replace(override_folder / file.name)
+                    else:
+                        continue
+        
+        print(f"\nDeleting {mod_folder}\\ ...\n")
+        shutil.rmtree(mod_folder)
+        print(f"{GREEN}\nFinished.\n{RESET}")
 
         
     else:
         print(f"{YELLOW}Multiple folders found.\n{RESET}")
-        print(extracted_path.name)
+        print(mod_folder.name)
         print_folder_tree(mod_folder)
 
         
 
 
 
-def install_mod(mod_folder: Path, auto_override_install: bool):
+def install_mod(mod_folder: Path, base_folder: Path, override_folder: Path, auto_override_install: bool):
 
     print(f"\nSearching for installer...")
     installers = list(mod_folder.rglob("*.exe"))
@@ -127,7 +142,7 @@ def install_mod(mod_folder: Path, auto_override_install: bool):
         print(f"{YELLOW}Loose-file mod.{RESET}")
         print()
         if auto_override_install:
-            install_override_mod(mod_folder,override_path)
+            install_override_mod(mod_folder,base_folder,override_folder)
         return
 
         
@@ -178,10 +193,10 @@ parser.add_argument(
     default="K1",
     choices=["K1","K2"],
     type=str,
-    help="Specify which game the mod is for. Used when automatically installing into override.")
+    help="Specify which game the mod is for. Used with --automatic.")
 
-parser.add_argument("--automatic", action="store_true",
-                    help="Move files to override folder automatically with option of excluding certain files")
+parser.add_argument("-a","--automatic", action="store_true",
+                    help="Move files to override folder automatically with option of excluding files. Requires a game to be selected via --game.")
 
 
 args = parser.parse_args()
@@ -190,7 +205,7 @@ archive_name = args.filename
 game = args.game
 automatic_override_install = args.automatic
 
-
+base_path = K1_BASE_PATH if game == "K1" else K2_BASE_PATH
 override_path = K1_OVERRIDE_PATH if game == "K1" else K2_OVERRIDE_PATH
 downloads_path = Path.home() / "Downloads"
 archive_path = downloads_path / archive_name
@@ -223,7 +238,7 @@ print(f"{WHITE}Extracting to {Path.home() / "Downloads"}\\{archive_path.stem}\\ 
 extract_archive(archive_path,extracted_path)
 
 
-install_mod(extracted_path,automatic_override_install)
+install_mod(extracted_path,base_path,override_path,automatic_override_install)
 
 
 
