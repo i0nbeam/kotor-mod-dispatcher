@@ -25,7 +25,7 @@ K1_OVERRIDE_PATH = K1_BASE_PATH / "Override"
 K2_BASE_PATH = Path("C:/Program Files (x86)/Steam/steamapps/common/Knights of the Old Republic II")
 K2_OVERRIDE_PATH = K2_BASE_PATH / "override"
 
-ignored_extensions = [".txt", ".rtf", ".doc", ".docx"]
+IGNORED_EXTENSIONS = [".txt", ".rtf", ".doc", ".docx"]
 
 #-----------------------------------------------------------------------
 # Functions
@@ -79,7 +79,8 @@ def install_override_mod(mod_folder: Path, base_folder: Path, override_folder: P
 
     directories = [path for path in mod_folder.rglob("*") if path.is_dir()]
 
-
+    # Check if the mod files are NOT within a folder with the same name as the mod archive or with the name "override"
+    # This is to check if there are multiple variants/optional features in the mod. User must choose and manually install
     if (len(directories) >= 1 and any(directory.name != mod_folder.name and directory.name.lower() != "override" for directory in directories)):
         print(f"{YELLOW}Multiple folders found.\n{RESET}")
         print(mod_folder.name)
@@ -87,7 +88,7 @@ def install_override_mod(mod_folder: Path, base_folder: Path, override_folder: P
 
 
     else:
-        print(extracted_path.name)
+        print(mod_folder.name)
         print_folder_tree(mod_folder)
         files = [file for file in mod_folder.rglob("*") if file.is_file()]
         excluded_files = input(f"\nEnter filenames to be excluded (separated by spaces, 'q' to cancel install): ").split()
@@ -104,7 +105,7 @@ def install_override_mod(mod_folder: Path, base_folder: Path, override_folder: P
 
         for file in files:
 
-            if file.suffix in ignored_extensions or file.name.endswith("#"):
+            if file.suffix in IGNORED_EXTENSIONS or file.name.startswith("~"):
                 continue
 
 
@@ -135,9 +136,14 @@ def install_override_mod(mod_folder: Path, base_folder: Path, override_folder: P
 
 def install_mod(mod_folder: Path, base_folder: Path, override_folder: Path, auto_override_install: bool):
 
-    print(f"\nSearching for installer...")
+    print(f"\nSearching for installer...\n")
     installers = list(mod_folder.rglob("*.exe"))
 
+    # Only keep installers that are not within tslpatchdata/
+    if len(installers) > 1:
+        installers = [installer for installer in installers if not any(parent.name == "tslpatchdata" for parent in installer.parents)]
+
+    
     if len(installers) == 0:
         print()
         print(f"{YELLOW}No installer found.{RESET}")
@@ -154,28 +160,26 @@ def install_mod(mod_folder: Path, base_folder: Path, override_folder: Path, auto
 
 
     else:
-        print(f"{YELLOW}Multiple installers found:{RESET}")
-
+        print(f"{YELLOW}Multiple installers found:{RESET}\n")
         for i, installer in enumerate(installers):
-            print(f"    [{i}]: {installer}")
+            print(f"    [{i}]: {installer.relative_to(mod_folder.parent)}")
 
+        print()
         while(True):
-            choice = input(f"{CYAN}Choose an installer (0 to {len(installers)}):{RESET} ")
+            choice = input(f"Choose an installer (0 to {len(installers)-1}): ")
             if choice.isdigit():
-                if 0 <= choice < len(installers):
+                if 0 <= int(choice) < len(installers):
                     installer = installers[int(choice)]
                     break
                 else:
-                    print(f"{RED}Invalid choice.{RESET}\n")
+                    print(f"\n{RED}Invalid choice.{RESET}\n")
             else:
-                print(f"{RED}Input a number between 0 < {len(installers)}{RESET}\n")
+                print(f"\n{RED}Input a number between 0 and {len(installers)-1}.{RESET}\n")
 
 
-    print(f"\n{CYAN}Running {installer.name}...{RESET}")
+    print(f"{CYAN}Running {installer.name}...{RESET}\n")
     subprocess.run([str(installer)], cwd=installer.parent)
-    print(f"\n{GREEN}Installation complete.{RESET}")
-    # print(f"\nDeleting {mod_folder}\\ ...\n")
-    # shutil.rmtree(mod_folder)
+    print(f"{GREEN}Installation complete.{RESET}\n")
 
 
         
@@ -217,13 +221,13 @@ if not archive_path.exists():
     print(f"{RED}Archive not found: {archive_path}{RESET}")
     sys.exit(1)
 
-extracted_path = downloads_path / archive_path.stem
+extract_path = downloads_path / archive_path.stem
 
-if extracted_path.exists():
-    shutil.rmtree(extracted_path)
+if extract_path.exists():
+    shutil.rmtree(extract_path)
 
 
-extracted_path.mkdir(parents=True)
+extract_path.mkdir(parents=True)
 
 
 
@@ -237,18 +241,20 @@ print(f"{WHITE}Extracting to {Path.home() / "Downloads"}\\{archive_path.stem}\\ 
 
 
 try:
-    extract_archive(archive_path,extracted_path)
-    install_mod(extracted_path,base_path,override_path,automatic_override_install)
+    extract_archive(archive_path,extract_path)
+    install_mod(extract_path,base_path,override_path,automatic_override_install)
 
 except py7zr.exceptions.UnsupportedCompressionMethodError as err:
-    print(f"\n{RED}EXCEPTION: {RESET}{YELLOW}{err}{RESET}\n")
+    print(f"\n{RED}ERROR: {RESET}{YELLOW}{err}{RESET}\n")
     print(f"{YELLOW}This .7z archive uses the BCJ2 filter which is currently unsupported by py7zr. Install this mod without kotor_mod_dispatcher.{RESET}\n")
+    shutil.rmtree(extract_path)
     sys.exit(1)
 
 except zipfile.BadZipFile as err:
     print(f"\n{RED}ERROR: {RESET}{archive_path.name} is BadZipFile\n")
     print(f"{err}\n")
     print(f"{YELLOW}Try recompressing this archive or install this mod without kotor_mod_dispatcher.{RESET}\n")
+    shutil.rmtree(extract_path)
     sys.exit(1)
 
 
